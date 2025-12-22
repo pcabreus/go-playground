@@ -13,7 +13,7 @@ func lengthOfLongestSubstring(s string) int {
 	}
 	longest := 0
 	// abcabcbb
-	for _, i := range s { // TODO: Or remaining chars are same size than the longest // a
+	for i := range s { // TODO: Or remaining chars are same size than the longest // a
 		seen := map[byte]struct{}{s[i]: {}} // seen -> a, b , c
 		charLength := 1
 		for j := i + 1; j < length; j++ {
@@ -36,6 +36,25 @@ func lengthOfLongestSubstring(s string) int {
 }
 
 func main() {
+	ch := make(chan int)
+	fmt.Println(ch)
+	go func() {
+		select <-ch {
+		case:
+			fmt.Println("channel 1")
+		default:
+			fmt.Println("default")
+			time.Sleep(500 * time.Millisecond)
+		}
+	}()
+
+	time.Sleep(1 * time.Second)
+	ch <- 1
+	time.Sleep(1 * time.Second)
+	close(ch)
+	fmt.Println(ch)
+
+	return
 
 	fmt.Println(lengthOfLongestSubstring("abcabcbb"))
 	fmt.Println(lengthOfLongestSubstring("bbbbb"))
