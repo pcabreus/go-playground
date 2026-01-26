@@ -40,7 +40,6 @@ func main() {
 
 	token := getEnv("FOURSQUARE_API_KEY", "")
 	add := getEnv("ADDR", ":8080")
-
 	
 	client := NewFourSquare("https://places-api.foursquare.com", token)
 
