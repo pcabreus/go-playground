@@ -2,42 +2,72 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pcabreus/go-playground/challenges/bookingaride/internal/domain"
 	"github.com/pcabreus/go-playground/challenges/bookingaride/internal/ports"
 )
 
-type CreateBookingInput struct {
-	Pickup  domain.Location
-	Dropoff domain.Location
-	Date    string
-	Time    string
+// BookingService encapsulates booking business logic and implements BookingUseCase
+type BookingService struct {
+	storagePort ports.BookingStore
+	pricePort   ports.PricingService
 }
 
-func CreateBooking(ctx context.Context, input CreateBookingInput, store ports.BookingStore) (domain.Booking, error) {
+// NewBookingService creates a new instance of BookingService
+func NewBookingService(storage ports.BookingStore, pricing ports.PricingService) *BookingService {
+	return &BookingService{
+		storagePort: storage,
+		pricePort:   pricing,
+	}
+}
 
-	// create estimated price or quote
-	quote := CalculateEstimatedPrice(input.Pickup, input.Dropoff)
+// CreateBooking creates a new booking with estimated price
+// Implements the BookingUseCase interface
+func (bs *BookingService) CreateBooking(ctx context.Context, input ports.CreateBookingInput) (*domain.Booking, error) {
+	// Validate input locations
+	if err := input.Pickup.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid pickup location: %w", err)
+	}
+	if err := input.Dropoff.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid dropoff location: %w", err)
+	}
 
-	UUID := uuid.New()
+	// Calculate estimated price using the pricing port
+	quote, err := bs.pricePort.CalculatePrice(ctx, input.Pickup, input.Dropoff)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", domain.ErrPriceCalculation, err)
+	}
 
-	BookingID := UUID.String()
+	// Generate unique booking ID
+	bookingID := uuid.New().String()
+	now := time.Now().Format(time.RFC3339)
+
+	// Create domain booking entity
 	booking := domain.Booking{
-		ID:             BookingID,
-		Pickup:         domain.Location(input.Pickup),
-		Dropoff:        domain.Location(input.Dropoff),
+		ID:             bookingID,
+		Pickup:         input.Pickup,
+		Dropoff:        input.Dropoff,
 		Date:           input.Date,
 		Time:           input.Time,
 		EstimatedPrice: quote,
 		Status:         "pending",
-		GuestID:        nil, // placeholder
+		CreatedAt:      now,
+		UpdatedAt:      now,
+		GuestID:        nil,
 	}
 
-	err := store.SaveBooking(ctx, booking)
-	if err != nil {
-		return domain.Booking{}, err
+	// Validate the complete booking
+	if err := booking.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid booking: %w", err)
 	}
 
-	return booking, nil
+	// Persist the booking using storage port
+	if err := bs.storagePort.SaveBooking(ctx, booking); err != nil {
+		return nil, fmt.Errorf("%w: %v", domain.ErrStorageUnavailable, err)
+	}
+
+	return &booking, nil
 }
