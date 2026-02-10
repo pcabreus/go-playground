@@ -1,12 +1,19 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/pcabreus/challenges/bookingaride/internal"
+)
 
 func main() {
 
 	// Load config
 
-	app := internal.App{}
+	mux := http.NewServeMux()
+
+	app := internal.New(mux, ":8080")
 	// app - Rouiting system, handlers, services, statorage
 
 	// run application
